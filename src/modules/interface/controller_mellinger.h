@@ -29,7 +29,6 @@
 #include "stabilizer_types.h"
 
 void controllerMellingerInit(void);
-void controllerMellingerReset(void);
 bool controllerMellingerTest(void);
 void controllerMellinger(control_t *control, setpoint_t *setpoint,
                                          const sensorData_t *sensors,
