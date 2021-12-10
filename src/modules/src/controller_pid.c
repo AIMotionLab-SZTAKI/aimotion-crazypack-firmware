@@ -79,7 +79,7 @@ void controllerPid(control_t *control, setpoint_t *setpoint,
   if (RATE_DO_EXECUTE(POSITION_RATE, tick)) {
     if(((float)fabs(state->position.x) > x_bound) || ((float)fabs(state->position.y) > y_bound || state->position.z > z_bound))
       {
-        stabilizerSetEmergencyStop();
+        // stabilizerSetEmergencyStop();
       }
     positionController(&actuatorThrust, &attitudeDesired, setpoint, state);
   }
