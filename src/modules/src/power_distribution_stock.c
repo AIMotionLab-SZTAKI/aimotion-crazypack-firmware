@@ -34,6 +34,7 @@
 #include "platform.h"
 #include "motors.h"
 #include "debug.h"
+#include "position_controller.h"
 
 static bool motorSetEnable = false;
 
@@ -51,15 +52,39 @@ static struct {
   uint16_t m4;
 } motorPowerSet;
 
-#ifndef DEFAULT_IDLE_THRUST
-#define DEFAULT_IDLE_THRUST 0
-#endif
+// Code of Peter
+static struct {
+  float m1;
+  float m2;
+  float m3;
+  float m4;
+} average;
+static float average_m = 0;
 
-static uint32_t idleThrust = DEFAULT_IDLE_THRUST;
+/*static struct {
+  uint16_t m1;
+  uint16_t m2;
+  uint16_t m3;
+  uint16_t m4;
+} actualPowerSet;*/
+
+static float num = 0.0;
+static bool isAverage = false;
+static bool isFeedForward = false;
+//
+
 
 void powerDistributionInit(void)
 {
   motorsInit(platformConfigGetMotorMapping());
+  // Code of Peter
+  num = 0;
+  average.m1 = 0;
+  average.m2 = 0;
+  average.m3 = 0;
+  average.m4 = 0;
+  isFeedForward = false;
+  //
 }
 
 bool powerDistributionTest(void)
@@ -81,15 +106,15 @@ void powerStop()
   motorsSetRatio(MOTOR_M4, 0);
 }
 
-void powerDistribution(const control_t *control)
+void powerDistribution(const control_t *control)  // Motor power: PWM -> 0...65535
 {
   #ifdef QUAD_FORMATION_X
-    int16_t r = control->roll / 2.0f;
-    int16_t p = control->pitch / 2.0f;
-    motorPower.m1 = limitThrust(control->thrust - r + p + control->yaw);
-    motorPower.m2 = limitThrust(control->thrust - r - p - control->yaw);
-    motorPower.m3 =  limitThrust(control->thrust + r - p + control->yaw);
-    motorPower.m4 =  limitThrust(control->thrust + r + p - control->yaw);
+    int16_t r = control->roll; // / 2.0f;
+    int16_t p = control->pitch; // / 2.0f;
+    motorPower.m1 = (control->thrust - r + p + control->yaw);
+    motorPower.m2 = (control->thrust - r - p - control->yaw);
+    motorPower.m3 = (control->thrust + r - p + control->yaw);
+    motorPower.m4 = (control->thrust + r + p - control->yaw);
   #else // QUAD_FORMATION_NORMAL
     motorPower.m1 = limitThrust(control->thrust + control->pitch +
                                control->yaw);
@@ -101,33 +126,50 @@ void powerDistribution(const control_t *control)
                                control->yaw);
   #endif
 
+  // Code of Peter
+  if (isAverage)
+  {
+    average.m1 = num/(num+1)*average.m1 + 1/(num+1)*(float)motorPower.m1;
+    average.m2 = num/(num+1)*average.m2 + 1/(num+1)*(float)motorPower.m2;
+    average.m3 = num/(num+1)*average.m3 + 1/(num+1)*(float)motorPower.m3;
+    average.m4 = num/(num+1)*average.m4 + 1/(num+1)*(float)motorPower.m4;
+    num++;
+  }
+  //
+
   if (motorSetEnable)
   {
     motorsSetRatio(MOTOR_M1, motorPowerSet.m1);
     motorsSetRatio(MOTOR_M2, motorPowerSet.m2);
     motorsSetRatio(MOTOR_M3, motorPowerSet.m3);
     motorsSetRatio(MOTOR_M4, motorPowerSet.m4);
+    return;
   }
-  else
-  {
-    if (motorPower.m1 < idleThrust) {
-      motorPower.m1 = idleThrust;
-    }
-    if (motorPower.m2 < idleThrust) {
-      motorPower.m2 = idleThrust;
-    }
-    if (motorPower.m3 < idleThrust) {
-      motorPower.m3 = idleThrust;
-    }
-    if (motorPower.m4 < idleThrust) {
-      motorPower.m4 = idleThrust;
-    }
 
-    motorsSetRatio(MOTOR_M1, motorPower.m1);
-    motorsSetRatio(MOTOR_M2, motorPower.m2);
-    motorsSetRatio(MOTOR_M3, motorPower.m3);
-    motorsSetRatio(MOTOR_M4, motorPower.m4);
+  // Code of Peter
+  else if (!isAverage && isFeedForward)
+  { 
+    average_m = (average.m1 + average.m2 + average.m3 + average.m4)/(float)4.0;
+    //setThrustBase(average_m);
+    motorPower.m1 = ((int32_t)((float)(motorPower.m1) * average.m1 / average_m));
+    motorPower.m2 = ((int32_t)((float)(motorPower.m2) * average.m2 / average_m));
+    motorPower.m3 = ((int32_t)((float)(motorPower.m3) * average.m3 / average_m));
+    motorPower.m4 = ((int32_t)((float)(motorPower.m4) * average.m4 / average_m));
+    /*motorsSetRatio(MOTOR_M1, actualPowerSet.m1);
+    motorsSetRatio(MOTOR_M2, actualPowerSet.m2);
+    motorsSetRatio(MOTOR_M3, actualPowerSet.m3);
+    motorsSetRatio(MOTOR_M4, actualPowerSet.m4);*/
   }
+  //
+
+  motorsSetRatio(MOTOR_M1, limitThrust(motorPower.m1));
+  motorsSetRatio(MOTOR_M2, limitThrust(motorPower.m2));
+  motorsSetRatio(MOTOR_M3, limitThrust(motorPower.m3));
+  motorsSetRatio(MOTOR_M4, limitThrust(motorPower.m4));    
+}
+
+void setFeedForward(){
+  isFeedForward = true;
 }
 
 PARAM_GROUP_START(motorPowerSet)
@@ -136,15 +178,17 @@ PARAM_ADD(PARAM_UINT16, m1, &motorPowerSet.m1)
 PARAM_ADD(PARAM_UINT16, m2, &motorPowerSet.m2)
 PARAM_ADD(PARAM_UINT16, m3, &motorPowerSet.m3)
 PARAM_ADD(PARAM_UINT16, m4, &motorPowerSet.m4)
+PARAM_ADD(PARAM_UINT8, isAv, &isAverage)               // set true to average the motor PWMs
+PARAM_ADD(PARAM_UINT8, isFF, &isFeedForward)       // set true to feedforward the averaged PWMs
 PARAM_GROUP_STOP(motorPowerSet)
 
-PARAM_GROUP_START(powerDist)
-PARAM_ADD(PARAM_UINT32, idleThrust, &idleThrust)
-PARAM_GROUP_STOP(powerDist)
-
 LOG_GROUP_START(motor)
-LOG_ADD(LOG_UINT32, m1, &motorPower.m1)
-LOG_ADD(LOG_UINT32, m2, &motorPower.m2)
-LOG_ADD(LOG_UINT32, m3, &motorPower.m3)
-LOG_ADD(LOG_UINT32, m4, &motorPower.m4)
+LOG_ADD(LOG_UINT16, m1, &motorPower.m1)
+LOG_ADD(LOG_UINT16, m2, &motorPower.m2)
+LOG_ADD(LOG_UINT16, m3, &motorPower.m3)
+LOG_ADD(LOG_UINT16, m4, &motorPower.m4)
+/*LOG_ADD(LOG_UINT16, am1, &actualPowerSet.m1)
+LOG_ADD(LOG_UINT16, am2, &actualPowerSet.m2)
+LOG_ADD(LOG_UINT16, am3, &actualPowerSet.m3)
+LOG_ADD(LOG_UINT16, am4, &actualPowerSet.m4)*/
 LOG_GROUP_STOP(motor)

@@ -21,18 +21,19 @@
  * You should have received a copy of the GNU General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  *
- * power_distribution.h - Interface to stabilizer power distribution
+ * controller_geom.h - Geometric Controller Interface
  */
-#ifndef __POWER_DISTRIBUTION_H__
-#define __POWER_DISTRIBUTION_H__
+#ifndef __CONTROLLER_GEOM_H__
+#define __CONTROLLER_GEOM_H__
 
 #include "stabilizer_types.h"
 
-void powerDistributionInit(void);
-bool powerDistributionTest(void);
-void powerDistribution(const control_t *control);
-void powerStop();
-void setFeedForward();
-
-
-#endif //__POWER_DISTRIBUTION_H__
+void controllerGeomInit(void);
+bool controllerGeomTest(void);
+void controllerGeomReset(void);
+void controllerGeom(control_t *control, setpoint_t *setpoint,
+                                         const sensorData_t *sensors,
+                                         const state_t *state,
+                                         const uint32_t tick);
+void setMode(bool val);
+#endif //__CONTROLLER_GEOM_H__

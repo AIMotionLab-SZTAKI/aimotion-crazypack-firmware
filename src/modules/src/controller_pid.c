@@ -27,6 +27,9 @@ static float r_roll;
 static float r_pitch;
 static float r_yaw;
 static float accelz;
+static float x_bound = 2;
+static float y_bound = 2;
+static float z_bound = 2.4;
 
 void controllerPidInit(void)
 {
@@ -74,6 +77,10 @@ void controllerPid(control_t *control, setpoint_t *setpoint,
   }
 
   if (RATE_DO_EXECUTE(POSITION_RATE, tick)) {
+    if(((float)fabs(state->position.x) > x_bound) || ((float)fabs(state->position.y) > y_bound || state->position.z > z_bound))
+      {
+        stabilizerSetEmergencyStop();
+      }
     positionController(&actuatorThrust, &attitudeDesired, setpoint, state);
   }
 
@@ -113,7 +120,6 @@ void controllerPid(control_t *control, setpoint_t *setpoint,
 
     control->yaw = -control->yaw;
 
-    cmd_thrust = control->thrust;
     cmd_roll = control->roll;
     cmd_pitch = control->pitch;
     cmd_yaw = control->yaw;
@@ -131,6 +137,7 @@ void controllerPid(control_t *control, setpoint_t *setpoint,
   {
     control->thrust = actuatorThrust;
   }
+  cmd_thrust = control->thrust;
 
   if (control->thrust == 0)
   {
@@ -173,4 +180,7 @@ LOG_GROUP_STOP(controller)
 
 PARAM_GROUP_START(controller)
 PARAM_ADD(PARAM_UINT8, tiltComp, &tiltCompensationEnabled)
+PARAM_ADD(PARAM_FLOAT, xmax, &x_bound)
+PARAM_ADD(PARAM_FLOAT, ymax, &y_bound)
+PARAM_ADD(PARAM_FLOAT, zmax, &z_bound)
 PARAM_GROUP_STOP(controller)
