@@ -128,9 +128,7 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
   ev = vsub(stateVel, setpointVel);
 
   struct vec target_thrust = vzero();
-  target_thrust.x = -kr_xy*er.x - kv_xy*ev.x + g_vehicleMass*setpoint->acceleration.x;
-  target_thrust.y = -kr_xy*er.y - kv_xy*ev.y + g_vehicleMass*setpoint->acceleration.y;
-  target_thrust.z = -kr_z*er.z - kv_z*ev.z + g_vehicleMass*(setpoint->acceleration.x + GRAVITY_MAGNITUDE);
+
   /* if (setpoint->mode.x == modeAbs) {
     target_thrust.x = -kr_xy*er.x - kv_xy*ev.x + g_vehicleMass*setpoint->acceleration.x;
     target_thrust.y = -kr_xy*er.y - kv_xy*ev.y + g_vehicleMass*setpoint->acceleration.y;
@@ -146,12 +144,16 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
   }*/
   
   if (!mode) {      // position control
+    target_thrust.x = -kr_xy*er.x - kv_xy*ev.x + g_vehicleMass*setpoint->acceleration.x;
+    target_thrust.y = -kr_xy*er.y - kv_xy*ev.y + g_vehicleMass*setpoint->acceleration.y;
+    target_thrust.z = -kr_z*er.z - kv_z*ev.z + g_vehicleMass*(setpoint->acceleration.z + GRAVITY_MAGNITUDE);
     r3 = vnormalize(target_thrust);
     r2 = vnormalize(vcross(r3,mkvec(cosf(yaw_des), sinf(yaw_des), 0)));
     r1 = vcross(r2, r3);
     Rd = mcolumns(r1, r2, r3);
     wd = mkvec(radians(setpoint->attitudeRate.roll), -radians(setpoint->attitudeRate.pitch), radians(setpoint->attitudeRate.yaw));
   } else {
+    target_thrust.z = -kr_z*er.z - kv_z*ev.z + g_vehicleMass*(setpoint->acceleration.z + GRAVITY_MAGNITUDE);
     t = getTime();
     T = t/timescale;
     // flip trajectory
@@ -214,16 +216,24 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
   struct vec cross = vcross(w, mkvec(Ixx*w.x, Ixx*w.x, Izz*w.z));
   // cross = vzero();
 
-  M.x = cross.x - kR_xy * eR.x - kw_xy * ew.x + kd_omega_rp * err_d_roll;
-  M.y = cross.y - kR_xy * eR.y - kw_xy * ew.y + kd_omega_rp * err_d_pitch;
-  M.z = -kR_z  * eR.z - kw_z  * ew.z;
-
   float thrust = 0;
   if (!mode){
+    M.x = cross.x - kR_xy * eR.x - kw_xy * ew.x + kd_omega_rp * err_d_roll;
+    M.y = cross.y - kR_xy * eR.y - kw_xy * ew.y + kd_omega_rp * err_d_pitch;
+    M.z = -kR_z  * eR.z - kw_z  * ew.z;
     thrust = vdot(target_thrust, mcolumn(R,2));
   } else {
-    thrust_temp = vdot(target_thrust, mcolumn(R,2))*thrust_scale;
+    M.x = cross.x - kR_xy * eR.x - kw_xy * ew.x + kd_omega_rp * err_d_roll;
+    M.y = cross.y - kR_xy * eR.y - kw_xy * ew.y + kd_omega_rp * err_d_pitch;
+    M.z = kR_z  * eR.z - kw_z  * ew.z;
+    float den = R.m[2][2];
+    if(den > 1e-7f){
+      thrust_temp = clamp(target_thrust.z / den, 0.22f, 0.6f);
+    } else{
+      thrust_temp = 0;
+    }
     thrust = (0.22f * cosf(2.0f * 3.14f * t / (0.9f*timescale)) + 0.4f);
+    //thrust = thrust_temp;
   }
   
  

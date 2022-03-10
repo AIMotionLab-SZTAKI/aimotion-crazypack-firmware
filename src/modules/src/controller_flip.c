@@ -152,17 +152,18 @@ void controllerFlip(control_t *control, setpoint_t *setpoint,
       controllerGeom(control, setpoint, sensors, state, tick);
       time += dt;
     } else {
-      setpoint->position.z = 0.6f + (z0-0.6f)*time;
-      setpoint->attitude.roll = 0;
-      setpoint->attitude.pitch = 0;
-      // setpoint->attitude.yaw = 0;
+      //setpoint->position.z = 0.7f + setpoint->position.z;
+      //setpoint->position.z = 0.6f + (z0-0.6f)*time;
+      //setpoint->attitude.roll = 0;
+      //setpoint->attitude.pitch = 0;
+      //setpoint->attitude.yaw = 0;
       switch (controller_type)
       {
       case 1:
         controllerGeom(control, setpoint, sensors, state, tick);
         break;
       case 2:
-        controllerPid(control, setpoint, sensors, state, tick);
+        controllerMellinger(control, setpoint, sensors, state, tick);
       default:
         controllerPid(control, setpoint, sensors, state, tick); // Maybe rewrite later
         break;
