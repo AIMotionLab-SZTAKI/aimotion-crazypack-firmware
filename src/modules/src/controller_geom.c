@@ -228,12 +228,12 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
     M.z = kR_z  * eR.z - kw_z  * ew.z;
     float den = R.m[2][2];
     if(den > 1e-7f){
-      thrust_temp = clamp(target_thrust.z / den, 0.22f, 0.6f);
+      thrust_temp = clamp(target_thrust.z / den, 0.22f, 0.5f);
     } else{
-      thrust_temp = 0;
+      thrust_temp = 0.22f;
     }
-    thrust = (0.22f * cosf(2.0f * 3.14f * t / (0.9f*timescale)) + 0.4f);
-    //thrust = thrust_temp;
+    //thrust = (0.22f * cosf(2.0f * 3.14f * t / (0.9f*timescale)) + 0.4f);
+    thrust = thrust_temp;
   }
   
  
