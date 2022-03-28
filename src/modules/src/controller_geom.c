@@ -46,18 +46,18 @@ static float t = 0;
 static float dt = (float)(1.0f/ATTITUDE_RATE);
 
 const static float thrust_scale = 132000; // 119460.0; TODO: find a solution (scale gains somehow)
-const static float rollpitch_scale = 7345302.2678;
-const static float yaw_scale = 4759362.5498;
+//const static float rollpitch_scale = 7345302.2678;
+//const static float yaw_scale = 4759362.5498;
 
 static float kr_xy = 0.4;
 static float kr_z = 1.25;
 static float kv_xy = 0.2;
 static float kv_z = 0.4;
-static float kR_xy = 0.0095; // 70000/rollpitch_scale;
-static float kR_z = 0.0126; // 60000/yaw_scale
-static float kw_xy = 0.0027; // 20000/rollpitch_scale;
-static float kw_z = 0.0025; // 12000/yaw_scale
-static float kd_omega_rp = 0.000027; // 200/rollpitch_scale
+static float kR_xy = 0.53; // 70000/thrust_scale instead of 70000/rollpitch_scale;
+static float kR_z = 0.45; // 60000/thrust_scale instead of 60000/yaw_scale
+static float kw_xy = 0.15; // 20000/thrust_scale instead of 20000/rollpitch_scale;
+static float kw_z = 0.09; // 12000/thrust_scale instead of 12000/yaw_scale
+static float kd_omega_rp = 0.0015; // 200/thrust_scale instead of 200/rollpitch_scale
 
 // Logging variables
 
@@ -402,9 +402,9 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
   r_yaw = radians(sensors->gyro.z);
 
   if (control->thrust > 0) {
-    control->roll = clamp(M.x * rollpitch_scale, -32000, 32000);
-    control->pitch = clamp(M.y * rollpitch_scale, -32000, 32000);
-    control->yaw = clamp(-M.z * yaw_scale, -32000, 32000);
+    control->roll = clamp(M.x * thrust_scale, -32000, 32000);
+    control->pitch = clamp(M.y * thrust_scale, -32000, 32000);
+    control->yaw = clamp(-M.z * thrust_scale, -32000, 32000);
     cmd_roll = control->roll;
     cmd_pitch = control->pitch;
     cmd_yaw = control->yaw;
@@ -421,6 +421,10 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
 
 void setMode(bool val) {
   mode = val;
+}
+
+float getPsi(){
+  return psi;
 }
 
 PARAM_GROUP_START(ctrlGeom)
@@ -455,7 +459,6 @@ LOG_ADD(LOG_FLOAT, thrust, &thrust_tmp)
 LOG_ADD(LOG_FLOAT, qw, &q.w)
 LOG_ADD(LOG_FLOAT, eRy, &eR.y)
 LOG_ADD(LOG_FLOAT, ewy, &ew.y)
-LOG_ADD(LOG_FLOAT, psi, &psi)
 LOG_ADD(LOG_FLOAT, u1, &u1)
 LOG_ADD(LOG_FLOAT, u0, &u0)
 // LOG_ADD(LOG_INT16, min0, &min0_i)

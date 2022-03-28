@@ -26,7 +26,8 @@
 #define DEBUG_MODULE "PWR_DIST"
 
 #include "power_distribution.h"
-
+#include <math.h>
+#include "math3d.h"
 #include <string.h>
 #include "log.h"
 #include "param.h"
@@ -37,6 +38,9 @@
 #include "position_controller.h"
 
 static bool motorSetEnable = false;
+const static float thrust_scale = 132000; // 119460.0; TODO: find a solution (scale gains somehow)
+//const static float rollpitch_scale = 7345302.2678;
+//const static float yaw_scale = 4759362.5498;
 
 static struct {
   uint32_t m1;
@@ -109,12 +113,29 @@ void powerStop()
 void powerDistribution(const control_t *control)  // Motor power: PWM -> 0...65535
 {
   #ifdef QUAD_FORMATION_X
-    int16_t r = control->roll; // / 2.0f;
+    // float l = 0.0325f; // thrust2torque
+    // float bk = 0.0251f; // b/k
+    float rf = control->roll / thrust_scale / 4.0f;
+    float pf = control->pitch / thrust_scale / 4.0f;
+    float yf = control->yaw / thrust_scale / 4.0f;
+    float tf = control->thrust / thrust_scale / 4.0f;
+    
+    int32_t f1 = thrust2pwm(tf - rf + pf + yf);
+    int32_t f2 = thrust2pwm(tf - rf - pf - yf);
+    int32_t f3 = thrust2pwm(tf + rf - pf + yf);
+    int32_t f4 = thrust2pwm(tf + rf + pf - yf);
+    motorPower.m1 = limitThrust(f1);
+    motorPower.m2 = limitThrust(f2);
+    motorPower.m3 = limitThrust(f3);
+    motorPower.m4 = limitThrust(f4);
+    
+    
+    /*int16_t r = control->roll; // / 2.0f;
     int16_t p = control->pitch; // / 2.0f;
     motorPower.m1 = (control->thrust - r + p + control->yaw);
     motorPower.m2 = (control->thrust - r - p - control->yaw);
     motorPower.m3 = (control->thrust + r - p + control->yaw);
-    motorPower.m4 = (control->thrust + r + p - control->yaw);
+    motorPower.m4 = (control->thrust + r + p - control->yaw);*/
   #else // QUAD_FORMATION_NORMAL
     motorPower.m1 = limitThrust(control->thrust + control->pitch +
                                control->yaw);
@@ -170,6 +191,10 @@ void powerDistribution(const control_t *control)  // Motor power: PWM -> 0...655
 
 void setFeedForward(){
   isFeedForward = true;
+}
+
+float thrust2pwm(float thrust){
+  return -24239.44f + 216675.7f*(float)sqrt((double)(0.011966f + thrust));
 }
 
 PARAM_GROUP_START(motorPowerSet)

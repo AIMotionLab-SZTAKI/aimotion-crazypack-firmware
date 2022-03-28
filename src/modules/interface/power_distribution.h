@@ -33,6 +33,7 @@ bool powerDistributionTest(void);
 void powerDistribution(const control_t *control);
 void powerStop();
 void setFeedForward();
+float thrust2pwm(float thrust);
 
 
 #endif //__POWER_DISTRIBUTION_H__

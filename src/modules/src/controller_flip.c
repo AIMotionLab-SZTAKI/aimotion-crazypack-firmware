@@ -72,6 +72,8 @@ static float cmd_yaw;
 static float r_roll;
 static float r_pitch;
 static float r_yaw;
+static float psi = 0;
+
 
 
 void controllerFlipReset(void)
@@ -128,6 +130,17 @@ void controllerFlip(control_t *control, setpoint_t *setpoint,
     default:
       break;
     }
+    // TODO: calculate attitude error function psi
+    struct vec rpy = mkvec(state->attitude.roll, state->attitude.pitch, state->attitude.yaw);
+    struct vec rpy_d = mkvec(setpoint->attitude.roll, setpoint->attitude.pitch, setpoint->attitude.yaw);
+    struct quat q = rpy2quat(rpy);
+    struct quat q_d = rpy2quat(rpy_d);
+    struct mat33 R = quat2rotmat(q);
+    struct mat33 R_d = quat2rotmat(q_d);
+    struct mat33 eR = mmul(mtranspose(R_d),R);
+    struct mat33 tr_tmp = msub(meye(),eR);
+    psi = 0.5f*(tr_tmp.m[0][0] + tr_tmp.m[1][1] + tr_tmp.m[2][2]);
+
   } else {
     if (time > T0 + T1) {         // after last section
       isFlipControl = false;
@@ -150,6 +163,7 @@ void controllerFlip(control_t *control, setpoint_t *setpoint,
         setMode(true);
       }           
       controllerGeom(control, setpoint, sensors, state, tick);
+      //psi = getPsi();
       time += dt;
     } else {
       //setpoint->position.z = 0.7f + setpoint->position.z;
@@ -171,6 +185,10 @@ void controllerFlip(control_t *control, setpoint_t *setpoint,
       time += dt;
     }
   }
+  cmd_roll = control->roll;
+  cmd_pitch = control->pitch;
+  cmd_yaw = control->yaw;
+  cmd_thrust = control->thrust;
 }
 
 float getTime() {
@@ -199,4 +217,5 @@ LOG_ADD(LOG_FLOAT, cmd_yaw, &cmd_yaw)
 LOG_ADD(LOG_FLOAT, r_roll, &r_roll)
 LOG_ADD(LOG_FLOAT, r_pitch, &r_pitch)
 LOG_ADD(LOG_FLOAT, r_yaw, &r_yaw)
+LOG_ADD(LOG_FLOAT, psi, &psi)
 LOG_GROUP_STOP(ctrlFlip)

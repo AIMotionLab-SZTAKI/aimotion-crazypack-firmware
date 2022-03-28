@@ -36,4 +36,5 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
                                          const state_t *state,
                                          const uint32_t tick);
 void setMode(bool val);
+float getPsi(void);
 #endif //__CONTROLLER_GEOM_H__
