@@ -61,22 +61,22 @@ float LI_4D(int nx,
     int nwzy = nw*nz*ny;
     int nwz  = nw*nz;
 
-    return ((((float)f[i *nwzy + j *nwz + k *nw + l ]/10000.0f*xWtb +                                // return f[i ][j ][k ][l ]*xWtb*yWtb*zWtb*wWtb +
-              (float)f[ip*nwzy + j *nwz + k *nw + l ]/10000.0f*xWta) * yWtb +                        //        f[ip][j ][k ][l ]*xWta*yWtb*zWtb*wWtb +
-             ((float)f[i *nwzy + jp*nwz + k *nw + l ]/10000.0f*xWtb +                                //        f[i ][jp][k ][l ]*xWtb*yWta*zWtb*wWtb +
-              (float)f[ip*nwzy + jp*nwz + k *nw + l ]/10000.0f*xWta) * yWta) * zWtb +                //        f[ip][jp][k ][l ]*xWta*yWta*zWtb*wWtb +
-            (((float)f[i *nwzy + j *nwz + kp*nw + l ]/10000.0f*xWtb +                                //        f[i ][j ][kp][l ]*xWtb*yWtb*zWta*wWtb +
-              (float)f[ip*nwzy + j *nwz + kp*nw + l ]/10000.0f*xWta) * yWtb +                        //        f[ip][j ][kp][l ]*xWta*yWtb*zWta*wWtb +    
-             ((float)f[i *nwzy + jp*nwz + kp*nw + l ]/10000.0f*xWtb +                                //        f[i ][jp][kp][l ]*xWtb*yWta*zWta*wWtb +
-              (float)f[ip*nwzy + jp*nwz + kp*nw + l ]/10000.0f*xWta) * yWta) * zWta) * wWtb +        //        f[ip][jp][kp][l ]*xWta*yWta*zWta*wWtb +
-           ((((float)f[i *nwzy + j *nwz + k *nw + lp]/10000.0f*xWtb +                                //        f[i ][j ][k ][lp]*xWtb*yWtb*zWtb*wWta +
-              (float)f[ip*nwzy + j *nwz + k *nw + lp]/10000.0f*xWta) * yWtb +                        //        f[ip][j ][k ][lp]*xWta*yWtb*zWtb*wWta +
-             ((float)f[i *nwzy + jp*nwz + k *nw + lp]/10000.0f*xWtb +                                //        f[i ][jp][k ][lp]*xWtb*yWta*zWtb*wWta +
-              (float)f[ip*nwzy + jp*nwz + k *nw + lp]/10000.0f*xWta) * yWta) * zWtb +                //        f[ip][jp][k ][lp]*xWta*yWta*zWtb*wWta +
-            (((float)f[i *nwzy + j *nwz + kp*nw + lp]/10000.0f*xWtb +                                //        f[i ][j ][kp][lp]*xWtb*yWtb*zWta*wWta +
-              (float)f[ip*nwzy + j *nwz + kp*nw + lp]/10000.0f*xWta) * yWtb +                        //        f[ip][j ][kp][lp]*xWta*yWtb*zWta*wWta +    
-             ((float)f[i *nwzy + jp*nwz + kp*nw + lp]/10000.0f*xWtb +                                //        f[i ][jp][kp][lp]*xWtb*yWta*zWta*wWta +
-              (float)f[ip*nwzy + jp*nwz + kp*nw + lp]/10000.0f*xWta) * yWta) * zWta) * wWta;         //        f[ip][jp][kp][lp]*xWta*yWta*zWta*wWta;
+    return ((((float)f[i *nwzy + j *nwz + k *nw + l ]/100000.0f*xWtb +                                // return f[i ][j ][k ][l ]*xWtb*yWtb*zWtb*wWtb +
+              (float)f[ip*nwzy + j *nwz + k *nw + l ]/100000.0f*xWta) * yWtb +                        //        f[ip][j ][k ][l ]*xWta*yWtb*zWtb*wWtb +
+             ((float)f[i *nwzy + jp*nwz + k *nw + l ]/100000.0f*xWtb +                                //        f[i ][jp][k ][l ]*xWtb*yWta*zWtb*wWtb +
+              (float)f[ip*nwzy + jp*nwz + k *nw + l ]/100000.0f*xWta) * yWta) * zWtb +                //        f[ip][jp][k ][l ]*xWta*yWta*zWtb*wWtb +
+            (((float)f[i *nwzy + j *nwz + kp*nw + l ]/100000.0f*xWtb +                                //        f[i ][j ][kp][l ]*xWtb*yWtb*zWta*wWtb +
+              (float)f[ip*nwzy + j *nwz + kp*nw + l ]/100000.0f*xWta) * yWtb +                        //        f[ip][j ][kp][l ]*xWta*yWtb*zWta*wWtb +    
+             ((float)f[i *nwzy + jp*nwz + kp*nw + l ]/100000.0f*xWtb +                                //        f[i ][jp][kp][l ]*xWtb*yWta*zWta*wWtb +
+              (float)f[ip*nwzy + jp*nwz + kp*nw + l ]/100000.0f*xWta) * yWta) * zWta) * wWtb +        //        f[ip][jp][kp][l ]*xWta*yWta*zWta*wWtb +
+           ((((float)f[i *nwzy + j *nwz + k *nw + lp]/100000.0f*xWtb +                                //        f[i ][j ][k ][lp]*xWtb*yWtb*zWtb*wWta +
+              (float)f[ip*nwzy + j *nwz + k *nw + lp]/100000.0f*xWta) * yWtb +                        //        f[ip][j ][k ][lp]*xWta*yWtb*zWtb*wWta +
+             ((float)f[i *nwzy + jp*nwz + k *nw + lp]/100000.0f*xWtb +                                //        f[i ][jp][k ][lp]*xWtb*yWta*zWtb*wWta +
+              (float)f[ip*nwzy + jp*nwz + k *nw + lp]/100000.0f*xWta) * yWta) * zWtb +                //        f[ip][jp][k ][lp]*xWta*yWta*zWtb*wWta +
+            (((float)f[i *nwzy + j *nwz + kp*nw + lp]/100000.0f*xWtb +                                //        f[i ][j ][kp][lp]*xWtb*yWtb*zWta*wWta +
+              (float)f[ip*nwzy + j *nwz + kp*nw + lp]/100000.0f*xWta) * yWtb +                        //        f[ip][j ][kp][lp]*xWta*yWtb*zWta*wWta +    
+             ((float)f[i *nwzy + jp*nwz + kp*nw + lp]/100000.0f*xWtb +                                //        f[i ][jp][kp][lp]*xWtb*yWta*zWta*wWta +
+              (float)f[ip*nwzy + jp*nwz + kp*nw + lp]/100000.0f*xWta) * yWta) * zWta) * wWta;         //        f[ip][jp][kp][lp]*xWta*yWta*zWta*wWta;
 }
 
 // Function to implement lower_bound
