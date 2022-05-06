@@ -384,8 +384,8 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
     } else{
       thrust_tmp = 0.22f;
     }
-    //thrust = (0.22f * cosf(2.0f * 3.14f * t / (0.9f*timescale)) + 0.4f);
-    thrust = thrust_tmp;
+    thrust = (0.22f * cosf(2.0f * 3.14f * t / (0.9f*timescale)) + 0.4f);
+    //thrust = thrust_tmp;
   }
   
  
