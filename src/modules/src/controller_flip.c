@@ -55,9 +55,9 @@ static bool wasFlipControl = false;
 
 static int controller_type = 1; // 1: PID, 2: Mellinger
 
-static float x_bound = 1;
-static float y_bound = 1;
-static float z_bound = 0.2;
+static float x_bound = 2;
+static float y_bound = 2;
+static float z_bound = 0.1;
 static float vel_bound = 0.5;
 static float recovery_setpoint = 0.6;
 static float z0 = 1.4;
