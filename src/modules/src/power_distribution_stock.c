@@ -38,7 +38,7 @@
 #include "position_controller.h"
 
 static bool motorSetEnable = false;
-const static float thrust_scale = 132000; // 119460.0; TODO: find a solution (scale gains somehow)
+//const static float thrust_scale = 132000; // 119460.0; TODO: find a solution (scale gains somehow)
 //const static float rollpitch_scale = 7345302.2678;
 //const static float yaw_scale = 4759362.5498;
 
@@ -115,7 +115,7 @@ void powerDistribution(const control_t *control)  // Motor power: PWM -> 0...655
   #ifdef QUAD_FORMATION_X
     // float l = 0.0325f; // thrust2torque
     // float bk = 0.0251f; // b/k
-    float rf = control->roll / thrust_scale / 4.0f;
+    /*float rf = control->roll / thrust_scale / 4.0f;
     float pf = control->pitch / thrust_scale / 4.0f;
     float yf = control->yaw / thrust_scale / 4.0f;
     float tf = control->thrust / thrust_scale / 4.0f;
@@ -128,14 +128,14 @@ void powerDistribution(const control_t *control)  // Motor power: PWM -> 0...655
     motorPower.m2 = limitThrust(f2);
     motorPower.m3 = limitThrust(f3);
     motorPower.m4 = limitThrust(f4);
+    */
     
-    
-    /*int16_t r = control->roll; // / 2.0f;
+    int16_t r = control->roll; // / 2.0f;
     int16_t p = control->pitch; // / 2.0f;
     motorPower.m1 = (control->thrust - r + p + control->yaw);
     motorPower.m2 = (control->thrust - r - p - control->yaw);
     motorPower.m3 = (control->thrust + r - p + control->yaw);
-    motorPower.m4 = (control->thrust + r + p - control->yaw);*/
+    motorPower.m4 = (control->thrust + r + p - control->yaw);
   #else // QUAD_FORMATION_NORMAL
     motorPower.m1 = limitThrust(control->thrust + control->pitch +
                                control->yaw);

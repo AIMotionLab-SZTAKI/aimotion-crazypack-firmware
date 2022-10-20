@@ -360,6 +360,15 @@ void locSrvSendLighthouseAngle(int basestation, pulseProcessorResult_t* angles)
   }
 }
 
+LOG_GROUP_START(ext_pose)
+  LOG_ADD(LOG_FLOAT, x, &ext_pose.x)
+  LOG_ADD(LOG_FLOAT, y, &ext_pose.y)
+  LOG_ADD(LOG_FLOAT, z, &ext_pose.z)
+  LOG_ADD(LOG_FLOAT, qx, &ext_pose.quat.x)
+  LOG_ADD(LOG_FLOAT, qy, &ext_pose.quat.y)
+  LOG_ADD(LOG_FLOAT, qz, &ext_pose.quat.z)
+  LOG_ADD(LOG_FLOAT, qw, &ext_pose.quat.w)  
+LOG_GROUP_STOP(ext_pose)
 
 LOG_GROUP_START(ext_pos)
   LOG_ADD(LOG_FLOAT, X, &ext_pos.x)
