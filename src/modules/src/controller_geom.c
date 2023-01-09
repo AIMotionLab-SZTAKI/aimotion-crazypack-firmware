@@ -49,15 +49,27 @@ const static float thrust_scale = 132000; // 119460.0; TODO: find a solution (sc
 const static float l = 0.0325; // L/sqrt(2), where L is half prop-to-prop length
 const static float b = 0.025; // b/k to scale yaw
 
+// Geometric control gains
+
 static float kr_xy = 0.4;
 static float kr_z = 1.25;
 static float kv_xy = 0.2;
 static float kv_z = 0.4;
-static float kR_xy = 0.017; // 70000/thrust_scale*l instead of 70000/rollpitch_scale;
-static float kR_z = 0.011; // 60000/thrust_scale*b instead of 60000/yaw_scale
+static float kR_xy = 0.034; // 70000/thrust_scale*l instead of 70000/rollpitch_scale;
+static float kR_z = 0.022; // 60000/thrust_scale*b instead of 60000/yaw_scale
 static float kw_xy = 0.0049; // 20000/thrust_scale*l instead of 20000/rollpitch_scale;
 static float kw_z = 0.00225; // 12000/thrust_scale*b instead of 12000/yaw_scale
 static float kd_omega_rp = 0.000049; // 200/thrust_scale*l instead of 200/rollpitch_scale
+
+// Robust control terms
+
+static float delta_R = 0.05;
+// static float delta_r = 0.00;
+// static float tau = 3;
+static float c1 = 1;
+// static float c2 = 0.1;
+// static float eps_r = 0.0004;
+static float eps_R = 0.0004;
 
 // Logging variables
 
@@ -73,7 +85,7 @@ static float q0;
 static float q2;
 static struct quat q;
 static float timescale = 1;
-static struct vec eR, ew, wd;
+static struct vec eR, ew, wd, M;
 static float p_des, p;
 
 static float prev_omega_roll;
@@ -86,13 +98,18 @@ static float err_d_pitch = 0;
 static bool mode = false;  // 0: position control, 1: attitude control
 static float thrust_tmp;
 
-static float g_vehicleMass = 0.027;
+static float g_vehicleMass = 0.032;
 
 static float psi = 0;
 
+static struct vec edw;
+
 static bool gp = false;
-static float u0 = 0;
-static float u1 = 0;
+static bool robust = false;
+static float eta0 = 0;
+static float eta1 = 0;
+static float mu0 = 0;
+static float mu1 = 0;
 static float gr0[5] = {-0.05 , -0.025,  0.   ,  0.025,  0.05};
 static float gr1[9] = {-1.  , -0.85, -0.7 , -0.55, -0.4 , -0.25, -0.1 ,  0.05,  0.2};
 static float gr2[5] = {-0.2, -0.1,  0. ,  0.1,  0.2};
@@ -159,7 +176,7 @@ static int ltb0[2025] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 static int ltb1[2025] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,-28,627,-1848,-745,0,0,0,0,0,-90,-542,-2781,-701,0,0,0,0,0,0,-10,-196,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-459,1134,-2482,-569,0,0,0,0,0,-1929,-6204,-3074,-1397,0,0,0,0,0,0,-58,77,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-9,-15,-1209,-1519,-386,-37,0,0,0,-13,-352,-8732,-12533,-867,-84,0,0,0,0,0,-7,-50,47,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-5,-335,-298,-619,-434,-17,0,0,0,68,-104,-6363,-12577,-5765,-117,0,0,0,0,0,-4,-57,-20,-6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-110,-1877,-356,-56,-10,0,0,-4,-44,-135,-1531,-8985,-8672,-950,-1,0,-2,3,-7,20,-7,-78,-4,0,0,-2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,-778,-1602,-65,0,0,0,0,-520,-6436,-5313,-3546,-7958,-1540,-36,0,0,-274,88,-25,-181,-263,-30,0,0,0,-202,-4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-3,157,-2098,-235,-3,0,0,0,0,-6516,-21506,-3248,-3526,-3282,-67,0,0,0,-2891,-701,168,-772,-159,-2,0,0,0,-2135,-51,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-5,239,-456,-17,0,0,0,0,0,-9534,29071,62,-933,-175,-1,0,0,0,-3512,-2604,147,-220,-7,0,0,0,0,-2588,-62,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,36,46,-1,0,0,0,0,0,-1622,10365,75,-35,-1,0,0,0,0,-491,-574,7,-6,0,0,0,0,0,-361,-8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-28,628,-1849,-745,0,0,0,0,0,-90,-542,-2782,-701,0,0,0,0,0,0,-10,-196,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-459,1134,-2482,-569,0,0,0,0,0,-1929,-6205,-3075,-1397,0,0,0,0,0,0,-58,77,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-9,-15,-1209,-1520,-386,-37,0,0,0,-13,-352,-8734,-12536,-867,-84,0,0,0,0,0,-7,-50,47,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-5,-335,-298,-619,-434,-17,0,0,0,68,-104,-6364,-12579,-5766,-117,0,0,0,0,0,-4,-57,-20,-6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-110,-1877,-356,-56,-10,0,0,-4,-44,-135,-1531,-8987,-8674,-951,-1,0,-2,3,-7,20,-7,-78,-4,0,0,-2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,-778,-1602,-65,0,0,0,0,-520,-6437,-5314,-3547,-7959,-1541,-36,0,0,-274,88,-25,-181,-263,-30,0,0,0,-202,-4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-3,157,-2098,-235,-3,0,0,0,0,-6517,-21515,-3248,-3527,-3282,-67,0,0,0,-2891,-701,168,-772,-159,-2,0,0,0,-2135,-51,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-5,239,-456,-17,0,0,0,0,0,-9535,29066,62,-933,-175,-1,0,0,0,-3513,-2604,147,-221,-7,0,0,0,0,-2589,-62,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,36,46,-1,0,0,0,0,0,-1622,10365,75,-35,-1,0,0,0,0,-491,-574,7,-6,0,0,0,0,0,-361,-8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-28,628,-1849,-745,0,0,0,0,0,-90,-542,-2782,-701,0,0,0,0,0,0,-10,-196,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-459,1134,-2482,-569,0,0,0,0,0,-1929,-6205,-3075,-1397,0,0,0,0,0,0,-58,77,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-9,-15,-1209,-1520,-386,-37,0,0,0,-13,-352,-8734,-12537,-867,-84,0,0,0,0,0,-7,-50,47,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-5,-335,-298,-619,-434,-17,0,0,0,68,-104,-6364,-12580,-5767,-117,0,0,0,0,0,-4,-57,-20,-6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-110,-1878,-356,-56,-10,0,0,-4,-44,-135,-1531,-8988,-8675,-951,-1,0,-2,3,-7,20,-7,-78,-4,0,0,-2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,-778,-1602,-65,0,0,0,0,-520,-6439,-5314,-3547,-7960,-1541,-36,0,0,-274,88,-25,-181,-263,-30,0,0,0,-202,-4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-3,157,-2099,-235,-3,0,0,0,0,-6518,-21524,-3249,-3527,-3283,-67,0,0,0,-2891,-701,168,-772,-159,-2,0,0,0,-2135,-51,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-5,239,-456,-17,0,0,0,0,0,-9535,29062,62,-933,-175,-1,0,0,0,-3514,-2604,147,-221,-7,0,0,0,0,-2589,-62,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,36,46,-1,0,0,0,0,0,-1622,10365,75,-35,-1,0,0,0,0,-492,-574,7,-6,0,0,0,0,0,-361,-8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-28,628,-1849,-745,0,0,0,0,0,-90,-542,-2782,-702,0,0,0,0,0,0,-10,-196,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-459,1134,-2482,-569,0,0,0,0,0,-1929,-6206,-3075,-1397,0,0,0,0,0,0,-58,77,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-9,-15,-1209,-1520,-386,-37,0,0,0,-13,-352,-8734,-12537,-867,-84,0,0,0,0,0,-7,-50,47,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-5,-335,-298,-619,-434,-17,0,0,0,68,-104,-6364,-12580,-5767,-117,0,0,0,0,0,-4,-57,-20,-6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-110,-1878,-356,-56,-10,0,0,-4,-44,-135,-1531,-8988,-8675,-951,-1,0,-2,3,-7,20,-7,-78,-4,0,0,-2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,-778,-1602,-65,0,0,0,0,-520,-6439,-5315,-3547,-7961,-1541,-36,0,0,-274,88,-25,-181,-263,-30,0,0,0,-202,-4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-3,157,-2099,-235,-3,0,0,0,0,-6517,-21529,-3249,-3528,-3283,-67,0,0,0,-2892,-701,168,-772,-159,-2,0,0,0,-2135,-51,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-5,239,-456,-17,0,0,0,0,0,-9535,29057,62,-933,-175,-1,0,0,0,-3514,-2604,147,-221,-7,0,0,0,0,-2589,-62,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,36,46,-1,0,0,0,0,0,-1622,10364,75,-35,-1,0,0,0,0,-492,-574,7,-6,0,0,0,0,0,-361,-8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-28,628,-1849,-745,0,0,0,0,0,-90,-542,-2782,-702,0,0,0,0,0,0,-10,-196,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-459,1134,-2482,-569,0,0,0,0,0,-1929,-6205,-3075,-1397,0,0,0,0,0,0,-58,77,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-9,-15,-1209,-1519,-386,-37,0,0,0,-13,-352,-8734,-12537,-867,-84,0,0,0,0,0,-7,-50,47,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-5,-335,-298,-619,-434,-17,0,0,0,68,-104,-6364,-12580,-5767,-117,0,0,0,0,0,-4,-57,-20,-6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-110,-1877,-356,-56,-10,0,0,-4,-44,-135,-1531,-8987,-8675,-951,-1,0,-2,3,-7,20,-7,-78,-4,0,0,-2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,9,-778,-1602,-65,0,0,0,0,-520,-6439,-5314,-3547,-7960,-1541,-36,0,0,-274,88,-25,-181,-263,-30,0,0,0,-202,-4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-3,157,-2098,-235,-3,0,0,0,0,-6517,-21533,-3249,-3527,-3283,-67,0,0,0,-2891,-701,168,-772,-159,-2,0,0,0,-2135,-51,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-5,239,-456,-17,0,0,0,0,0,-9534,29048,62,-933,-175,-1,0,0,0,-3513,-2604,147,-221,-7,0,0,0,0,-2589,-62,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,36,46,-1,0,0,0,0,0,-1622,10362,75,-35,-1,0,0,0,0,-492,-574,7,-6,0,0,0,0,0,-361,-8,0,0,0,0,0,0,0};
 
-static float u0_max = 0, u1_max = 0, u0_min = 0, u1_min = 0;
+static float eta0_max = 0, eta1_max = 0, eta0_min = 0, eta1_min = 0;
 
 void controllerGeomReset(void)
 {
@@ -170,10 +187,10 @@ void controllerGeomInit(void)
 {
   controllerGeomReset();
   for(int i = 0; i < 2025; i++){
-    if((float)ltb0[i]/100000.0f > u0_max) u0_max = (float)ltb0[i]/100000.0f;
-    if((float)ltb1[i]/100000.0f > u1_max) u1_max = (float)ltb1[i]/100000.0f;
-    if((float)ltb0[i]/100000.0f < u0_min) u0_min = (float)ltb0[i]/100000.0f;
-    if((float)ltb1[i]/100000.0f < u0_min) u1_min = (float)ltb1[i]/100000.0f;
+    if((float)ltb0[i]/100000.0f > eta0_max) eta0_max = (float)ltb0[i]/100000.0f;
+    if((float)ltb1[i]/100000.0f > eta1_max) eta1_max = (float)ltb1[i]/100000.0f;
+    if((float)ltb0[i]/100000.0f < eta0_min) eta0_min = (float)ltb0[i]/100000.0f;
+    if((float)ltb1[i]/100000.0f < eta0_min) eta1_min = (float)ltb1[i]/100000.0f;
   }
 }
 
@@ -191,7 +208,7 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
       return;
     }
 
-  struct vec er, ev, r1, r2, r3, M;
+  struct vec er, ev, r1, r2, r3, e_A;
   struct mat33 Rd;
   float yaw_des = radians(setpoint->attitude.yaw);
   struct vec setpointPos = mkvec(setpoint->position.x, setpoint->position.y, setpoint->position.z);
@@ -208,19 +225,6 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
 
   struct vec target_thrust = vzero();
 
-  /* if (setpoint->mode.x == modeAbs) {
-    target_thrust.x = -kr_xy*er.x - kv_xy*ev.x + g_vehicleMass*setpoint->acceleration.x;
-    target_thrust.y = -kr_xy*er.y - kv_xy*ev.y + g_vehicleMass*setpoint->acceleration.y;
-    target_thrust.z = -kr_z*er.z - kv_z*ev.z + g_vehicleMass*(setpoint->acceleration.x + GRAVITY_MAGNITUDE);
-  } else {
-    target_thrust.x = -sinf(radians(setpoint->attitude.pitch));
-    target_thrust.y = -sinf(radians(setpoint->attitude.roll));
-    if (setpoint->mode.z == modeAbs) {
-      target_thrust.z = -kr_z*er.z - kv_z*ev.z + g_vehicleMass*GRAVITY_MAGNITUDE;
-    } else {
-      target_thrust.z = 1;
-    }
-  }*/
   
   if (!mode) {      // position control
     target_thrust.x = -kr_xy*er.x - kv_xy*ev.x + g_vehicleMass*setpoint->acceleration.x;
@@ -236,7 +240,7 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
     t = getTime();
     T = t/timescale;
     // flip trajectory
-    q0 = 1.998f/(1.0f+expf(-20.0f*(T-0.45f)))-0.999f;
+    q0 = 1.99999f/(1.0f+expf(-20.0f*(T-0.45f)))-1.99999f/2.0f;
     q2 = sqrtf(1.0f-q0*q0);
     float dq0 = -(39.9f * expf(-20.0f * (T - 0.45f))) / ( (expf(-20.0f * (T - 0.45f)) + 1.0f) * (expf(-20.0f * (T - 0.45f)) + 1.0f) );
     struct quat qd = mkquat(0, q2, 0, q0);
@@ -257,9 +261,9 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
 
   struct mat33 eRm = msub(eR1,eR2);
 
-  eR.x = 1.0f*eRm.m[2][1];
-  eR.y = -1.0f*eRm.m[0][2];
-  eR.z = 1.0f*eRm.m[1][0];
+  eR.x = 0.5f*eRm.m[2][1];
+  eR.y = -0.5f*eRm.m[0][2];
+  eR.z = 0.5f*eRm.m[1][0];
 
   float stateAttitudeRateRoll = radians(sensors->gyro.x);
   float stateAttitudeRatePitch = -radians(sensors->gyro.y);
@@ -315,7 +319,7 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
     for (int i = 0; i < 48; i++) {
       utmp += k1[i] * alpha1[i];
     }
-    u1 = utmp / 200.0f;
+    eta1 = utmp / 200.0f;
     utmp = 0.0f;
 
     float tmp2 = 0;
@@ -366,26 +370,37 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
           min3_i = i;
         }
       }
-      u1 = (float)ltb1[min0_i*min1_i*min2_i*min3_i] / 10000.0f / 200.0f / 10.0f;
-      u0 = (float)ltb0[min0_i*min1_i*min2_i*min3_i] / 10000.0f / 200.0f / 10.0f;
+      eta1 = (float)ltb1[min0_i*min1_i*min2_i*min3_i] / 10000.0f / 200.0f / 10.0f;
+      eta0 = (float)ltb0[min0_i*min1_i*min2_i*min3_i] / 10000.0f / 200.0f / 10.0f;
       */
-      u0 = LI_4D(5, 9, 5, 9, gr0, gr1, gr2, gr3, ltb0, xtilde[0], xtilde[1], xtilde[2], xtilde[3]);
-      u0 = clamp(u0, u0_min, u0_max) / 200.0f;
-      u1 = LI_4D(5, 9, 5, 9, gr0, gr1, gr2, gr3, ltb1, xtilde[0], xtilde[1], xtilde[2], xtilde[3]);
-      u1 = clamp(u1, u1_min, u1_max) / 200.0f;
+      eta0 = LI_4D(5, 9, 5, 9, gr0, gr1, gr2, gr3, ltb0, xtilde[0], xtilde[1], xtilde[2], xtilde[3]);
+      eta0 = clamp(eta0, eta0_min, eta0_max) / 200.0f;
+      eta1 = LI_4D(5, 9, 5, 9, gr0, gr1, gr2, gr3, ltb1, xtilde[0], xtilde[1], xtilde[2], xtilde[3]);
+      eta1 = clamp(eta1, eta1_min, eta1_max) / 200.0f;
     }
+
+    if (robust){
+      e_A = vadd(ev, vscl(c1 / g_vehicleMass, er));
+      struct vec mu_R = vscl(1 / (delta_R * vmag(e_A) + eps_R), vscl(-delta_R * delta_R, e_A));
+      mu0 = mu_R.x;
+      mu1 = mu_R.y;
+    }
+
+    edw.x = kd_omega_rp * err_d_roll;
+    edw.y = kd_omega_rp * err_d_pitch;
+    edw.z = 0;
     
-    M.x = cross.x - kR_xy * eR.x - kw_xy * ew.x + kd_omega_rp * err_d_roll - u0;
-    M.y = cross.y - kR_xy * eR.y - kw_xy * ew.y + kd_omega_rp * err_d_pitch - u1;
+    M.x = cross.x - kR_xy * eR.x - kw_xy * ew.x + kd_omega_rp * err_d_roll - eta0 + mu0;
+    M.y = cross.y - kR_xy * eR.y - kw_xy * ew.y + kd_omega_rp * err_d_pitch - eta1 + mu1;
     M.z = kR_z  * eR.z - kw_z  * ew.z;
     float den = R.m[2][2];
     if(den > 1e-7f){
-      thrust_tmp = clamp(target_thrust.z / den, 0.22f, 0.5f);
+      thrust_tmp = clamp(target_thrust.z / den, 0.22f, 0.6f);
     } else{
       thrust_tmp = 0.22f;
     }
-    thrust = (0.22f * cosf(2.0f * 3.14f * t / (0.9f*timescale)) + 0.45f);
-    //thrust = thrust_tmp;
+    //thrust = (0.22f * cosf(2.0f * 3.14f * t / (0.9f*timescale)) + 0.45f);
+    thrust = thrust_tmp;
   }
   
  
@@ -438,6 +453,8 @@ PARAM_ADD(PARAM_FLOAT, kd_omega_rp, &kd_omega_rp)
 PARAM_ADD(PARAM_FLOAT, timescale, &timescale)
 PARAM_ADD(PARAM_UINT8, mode, &mode)
 PARAM_ADD(PARAM_UINT8, gp, &gp)
+PARAM_ADD(PARAM_UINT8, robust, &robust)
+PARAM_ADD(PARAM_UINT8, delta_R, &delta_R)
 PARAM_ADD(PARAM_FLOAT, mass, &g_vehicleMass)
 PARAM_GROUP_STOP(ctrlGeom)
 
@@ -457,9 +474,17 @@ LOG_ADD(LOG_FLOAT, thrust, &thrust_tmp)
 LOG_ADD(LOG_FLOAT, qw, &q.w)
 LOG_ADD(LOG_FLOAT, eRy, &eR.y)
 LOG_ADD(LOG_FLOAT, ewy, &ew.y)
-LOG_ADD(LOG_FLOAT, u1, &u1)
-LOG_ADD(LOG_FLOAT, u0, &u0)
+LOG_ADD(LOG_FLOAT, eta1, &eta1)
+LOG_ADD(LOG_FLOAT, eta0, &eta0)
+LOG_ADD(LOG_FLOAT, mu0, &mu0)
+LOG_ADD(LOG_FLOAT, mu1, &mu1)
 LOG_ADD(LOG_FLOAT, psi, &psi)
+LOG_ADD(LOG_FLOAT, edwx, &edw.x)
+LOG_ADD(LOG_FLOAT, edwy, &edw.y)
+LOG_ADD(LOG_FLOAT, edwz, &edw.z)
+LOG_ADD(LOG_FLOAT, Mx, &M.x)
+LOG_ADD(LOG_FLOAT, My, &M.y)
+LOG_ADD(LOG_FLOAT, Mz, &M.z)
 // LOG_ADD(LOG_INT16, min0, &min0_i)
 // LOG_ADD(LOG_INT16, min1, &min1_i)
 // LOG_ADD(LOG_INT16, min2, &min2_i)
