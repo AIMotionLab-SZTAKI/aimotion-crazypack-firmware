@@ -85,7 +85,7 @@ static float q0;
 static float q2;
 static struct quat q;
 static float timescale = 1;
-static struct vec eR, ew, wd, M;
+static struct vec eR, ew, wd, M, w, cross;
 static float p_des, p;
 
 static float prev_omega_roll;
@@ -98,7 +98,7 @@ static float err_d_pitch = 0;
 static bool mode = false;  // 0: position control, 1: attitude control
 static float thrust_tmp;
 
-static float g_vehicleMass = 0.032;
+static float g_vehicleMass = 0.033;
 
 static float psi = 0;
 
@@ -269,7 +269,7 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
   float stateAttitudeRatePitch = -radians(sensors->gyro.y);
   float stateAttitudeRateYaw = radians(sensors->gyro.z);
 
-  struct vec w = mkvec(stateAttitudeRateRoll, stateAttitudeRatePitch, stateAttitudeRateYaw);
+  w = mkvec(stateAttitudeRateRoll, stateAttitudeRatePitch, stateAttitudeRateYaw);
 
   // struct vec w_target = mvmul(eR2,wd);
 
@@ -295,7 +295,7 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
   }
   
 
-  struct vec cross = vcross(w, mkvec(Ixx*w.x, Ixx*w.x, Izz*w.z));
+  cross = vcross(w, mkvec(Ixx*w.x, Ixx*w.x, Izz*w.z));
   // cross = vzero();
 
   float thrust = 0;
@@ -395,7 +395,7 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
     M.z = kR_z  * eR.z - kw_z  * ew.z;
     float den = R.m[2][2];
     if(den > 1e-7f){
-      thrust_tmp = clamp(target_thrust.z / den, 0.22f, 0.6f);
+      thrust_tmp = clamp(target_thrust.z / den, 0.22f, 0.5f);
     } else{
       thrust_tmp = 0.22f;
     }
@@ -467,12 +467,16 @@ LOG_ADD(LOG_FLOAT, r_roll, &r_roll)
 LOG_ADD(LOG_FLOAT, r_pitch, &r_pitch)
 //LOG_ADD(LOG_FLOAT, t, &t)
 LOG_ADD(LOG_FLOAT, thrust, &thrust_tmp)
-//LOG_ADD(LOG_FLOAT, p_des, &p_des)
-//LOG_ADD(LOG_FLOAT, p, &p)
-//LOG_ADD(LOG_FLOAT, wdy, &wd.y)
+LOG_ADD(LOG_FLOAT, p_des, &p_des)
+LOG_ADD(LOG_FLOAT, p, &p)
+LOG_ADD(LOG_FLOAT, wdy, &wd.y)
+LOG_ADD(LOG_FLOAT, wy, &w.y)
+LOG_ADD(LOG_FLOAT, cross_y, &cross.y)
 //LOG_ADD(LOG_FLOAT, err_d_pitch, &err_d_pitch)
 LOG_ADD(LOG_FLOAT, qw, &q.w)
+LOG_ADD(LOG_FLOAT, eRx, &eR.x)
 LOG_ADD(LOG_FLOAT, eRy, &eR.y)
+LOG_ADD(LOG_FLOAT, eRz, &eR.z)
 LOG_ADD(LOG_FLOAT, ewy, &ew.y)
 LOG_ADD(LOG_FLOAT, eta1, &eta1)
 LOG_ADD(LOG_FLOAT, eta0, &eta0)
