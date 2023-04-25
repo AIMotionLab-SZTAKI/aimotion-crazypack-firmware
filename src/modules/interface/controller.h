@@ -35,6 +35,7 @@ typedef enum {
   ControllerTypeINDI,
   ControllerTypeFlip,
   ControllerTypeGeom,
+  ControllerTypeFlipFF,
   ControllerType_COUNT,
 } ControllerType;
 

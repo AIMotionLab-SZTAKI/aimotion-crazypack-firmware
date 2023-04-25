@@ -8,6 +8,7 @@
 #include "controller_indi.h"
 #include "controller_flip.h"
 #include "controller_geom.h"
+#include "controller_flip_ff.h"
 
 #define DEFAULT_CONTROLLER ControllerTypePID
 static ControllerType currentController = ControllerTypeAny;
@@ -28,6 +29,7 @@ static ControllerFcns controllerFunctions[] = {
   {.init = controllerINDIInit, .test = controllerINDITest, .update = controllerINDI, .name = "INDI"},
   {.init = controllerFlipInit, .test = controllerFlipTest, .update = controllerFlip, .name = "Flip"},
   {.init = controllerGeomInit, .test = controllerGeomTest, .update = controllerGeom, .name = "Geom"},
+  {.init = controllerFlipFFInit, .test = controllerFlipFFTest, .update = controllerFlipFF, .name = "FlipFF"},
 };
 
 

@@ -240,9 +240,9 @@ void controllerGeom(control_t *control, setpoint_t *setpoint,
     t = getTime();
     T = t/timescale;
     // flip trajectory
-    q0 = 1.99999f/(1.0f+expf(-20.0f*(T-0.45f)))-1.99999f/2.0f;
+    q0 = 1.99999f/(1.0f+expf(-35.0f*(T-0.35f)))-1.99999f/2.0f;
     q2 = sqrtf(1.0f-q0*q0);
-    float dq0 = -(39.9f * expf(-20.0f * (T - 0.45f))) / ( (expf(-20.0f * (T - 0.45f)) + 1.0f) * (expf(-20.0f * (T - 0.45f)) + 1.0f) );
+    float dq0 = -(39.9f * expf(-35.0f * (T - 0.35f))) / ( (expf(-35.0f * (T - 0.35f)) + 1.0f) * (expf(-35.0f * (T - 0.35f)) + 1.0f) );
     struct quat qd = mkquat(0, q2, 0, q0);
     struct vec eul_des = quat2rpy(qd);
     p_des = eul_des.y;
@@ -454,7 +454,7 @@ PARAM_ADD(PARAM_FLOAT, timescale, &timescale)
 PARAM_ADD(PARAM_UINT8, mode, &mode)
 PARAM_ADD(PARAM_UINT8, gp, &gp)
 PARAM_ADD(PARAM_UINT8, robust, &robust)
-PARAM_ADD(PARAM_UINT8, delta_R, &delta_R)
+PARAM_ADD(PARAM_FLOAT, delta_R, &delta_R)
 PARAM_ADD(PARAM_FLOAT, mass, &g_vehicleMass)
 PARAM_GROUP_STOP(ctrlGeom)
 

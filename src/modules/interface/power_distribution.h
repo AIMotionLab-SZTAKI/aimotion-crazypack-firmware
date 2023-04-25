@@ -34,6 +34,8 @@ void powerDistribution(const control_t *control);
 void powerStop();
 void setFeedForward();
 float thrust2pwm(float thrust);
+void powerDistributionForceTorque(const control_t *control);
+void setFlip(bool val);
 
 
 #endif //__POWER_DISTRIBUTION_H__

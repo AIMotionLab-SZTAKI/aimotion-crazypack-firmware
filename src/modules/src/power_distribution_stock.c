@@ -75,6 +75,12 @@ static float average_m = 0;
 static float num = 0.0;
 static bool isAverage = false;
 static bool isFeedForward = false;
+
+static float pwmToThrustA = 0.091492681f;
+static float pwmToThrustB = 0.067673604f;
+static float armLength = 0.046f; // m;
+static float thrustToTorque = 0.005964552f;
+static bool isFlip = false;
 //
 
 
@@ -110,43 +116,53 @@ void powerStop()
   motorsSetRatio(MOTOR_M4, 0);
 }
 
+void setFlip(bool val)
+{
+  isFlip = val;
+}
+
 void powerDistribution(const control_t *control)  // Motor power: PWM -> 0...65535
 {
-  #ifdef QUAD_FORMATION_X
-    // float l = 0.0325f; // thrust2torque
-    // float bk = 0.0251f; // b/k
-    /*float rf = control->roll / thrust_scale / 4.0f;
-    float pf = control->pitch / thrust_scale / 4.0f;
-    float yf = control->yaw / thrust_scale / 4.0f;
-    float tf = control->thrust / thrust_scale / 4.0f;
-    
-    int32_t f1 = thrust2pwm(tf - rf + pf + yf);
-    int32_t f2 = thrust2pwm(tf - rf - pf - yf);
-    int32_t f3 = thrust2pwm(tf + rf - pf + yf);
-    int32_t f4 = thrust2pwm(tf + rf + pf - yf);
-    motorPower.m1 = limitThrust(f1);
-    motorPower.m2 = limitThrust(f2);
-    motorPower.m3 = limitThrust(f3);
-    motorPower.m4 = limitThrust(f4);
-    */
-    
-    int16_t r = control->roll; // / 2.0f;
-    int16_t p = control->pitch; // / 2.0f;
-    motorPower.m1 = (control->thrust - r + p + control->yaw);
-    motorPower.m2 = (control->thrust - r - p - control->yaw);
-    motorPower.m3 = (control->thrust + r - p + control->yaw);
-    motorPower.m4 = (control->thrust + r + p - control->yaw);
-  #else // QUAD_FORMATION_NORMAL
-    motorPower.m1 = limitThrust(control->thrust + control->pitch +
-                               control->yaw);
-    motorPower.m2 = limitThrust(control->thrust - control->roll -
-                               control->yaw);
-    motorPower.m3 =  limitThrust(control->thrust - control->pitch +
-                               control->yaw);
-    motorPower.m4 =  limitThrust(control->thrust + control->roll -
-                               control->yaw);
-  #endif
-
+  if(!isFlip)
+  {
+    #ifdef QUAD_FORMATION_X
+      // float l = 0.0325f; // thrust2torque
+      // float bk = 0.0251f; // b/k
+      /*float rf = control->roll / thrust_scale / 4.0f;
+      float pf = control->pitch / thrust_scale / 4.0f;
+      float yf = control->yaw / thrust_scale / 4.0f;
+      float tf = control->thrust / thrust_scale / 4.0f;
+      
+      int32_t f1 = thrust2pwm(tf - rf + pf + yf);
+      int32_t f2 = thrust2pwm(tf - rf - pf - yf);
+      int32_t f3 = thrust2pwm(tf + rf - pf + yf);
+      int32_t f4 = thrust2pwm(tf + rf + pf - yf);
+      motorPower.m1 = limitThrust(f1);
+      motorPower.m2 = limitThrust(f2);
+      motorPower.m3 = limitThrust(f3);
+      motorPower.m4 = limitThrust(f4);
+      */
+      
+      int16_t r = control->roll; // / 2.0f;
+      int16_t p = control->pitch; // / 2.0f;
+      motorPower.m1 = (control->thrust - r + p + control->yaw);
+      motorPower.m2 = (control->thrust - r - p - control->yaw);
+      motorPower.m3 = (control->thrust + r - p + control->yaw);
+      motorPower.m4 = (control->thrust + r + p - control->yaw);
+    #else // QUAD_FORMATION_NORMAL
+      motorPower.m1 = limitThrust(control->thrust + control->pitch +
+                                control->yaw);
+      motorPower.m2 = limitThrust(control->thrust - control->roll -
+                                control->yaw);
+      motorPower.m3 =  limitThrust(control->thrust - control->pitch +
+                                control->yaw);
+      motorPower.m4 =  limitThrust(control->thrust + control->roll -
+                                control->yaw);
+    #endif
+  } else {
+    powerDistributionForceTorque(control);
+  }
+  
   // Code of Peter
   if (isAverage)
   {
@@ -187,6 +203,34 @@ void powerDistribution(const control_t *control)  // Motor power: PWM -> 0...655
   motorsSetRatio(MOTOR_M2, limitThrust(motorPower.m2));
   motorsSetRatio(MOTOR_M3, limitThrust(motorPower.m3));
   motorsSetRatio(MOTOR_M4, limitThrust(motorPower.m4));    
+}
+
+
+void powerDistributionForceTorque(const control_t *control) {
+  static float motorForces[4];
+  const float arm = 0.707106781f * armLength;
+  const float rollPart = 0.25f / arm * control->roll;
+  const float pitchPart = 0.25f / arm * control->pitch / 5.0e6f;
+  const float thrustPart = 0.25f * control->thrust; // N (per rotor)
+  const float yawPart = 0.25f * control->yaw / thrustToTorque;
+
+  motorForces[0] = thrustPart - rollPart + pitchPart + yawPart;
+  motorForces[1] = thrustPart - rollPart - pitchPart - yawPart;
+  motorForces[2] = thrustPart + rollPart - pitchPart + yawPart;
+  motorForces[3] = thrustPart + rollPart + pitchPart - yawPart;
+  for (int motorIndex = 0; motorIndex < 4; motorIndex++) {
+    float motorForce = motorForces[motorIndex];
+    if (motorForce < 0.0f) {
+      motorForce = 0.0f;
+    }
+
+    float motor_pwm = (-pwmToThrustB + sqrtf(pwmToThrustB * pwmToThrustB + 4.0f * pwmToThrustA * motorForce)) / (2.0f * pwmToThrustA);
+    motorForces[motorIndex]= motor_pwm * UINT16_MAX;
+  }
+  motorPower.m1 = motorForces[0];
+  motorPower.m2 = motorForces[1];
+  motorPower.m3 = motorForces[2];
+  motorPower.m4 = motorForces[3];
 }
 
 void setFeedForward(){

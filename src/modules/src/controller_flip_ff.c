@@ -32,6 +32,7 @@ SOFTWARE.
 #include "controller_flip.h"
 #include "controller_geom.h"
 #include "stabilizer.h"
+#include "power_distribution.h"
 
 #define GRAVITY_MAGNITUDE (9.81f)
 
@@ -78,7 +79,7 @@ static float accelz;
 static bool isFlipControl = false;
 static bool wasFlipControl = false;
 
-static int controller_type = 1; // 1: PID, 2: Mellinger
+static int controller_type_ff = 1; // 1: PID, 2: Mellinger
 
 static float x_bound = 1;
 static float y_bound = 1;
@@ -135,7 +136,7 @@ void controllerFlipFF(control_t *control, setpoint_t *setpoint,
       setpoint->attitude.roll = 0;
       setpoint->attitude.pitch = 0;*/
     }
-    switch (controller_type)
+    switch (controller_type_ff)
     {
     case 1:
       controllerGeom(control, setpoint, sensors, state, tick);
@@ -146,47 +147,53 @@ void controllerFlipFF(control_t *control, setpoint_t *setpoint,
       break;
     }
   } else {
+    setFlip(true);
     if (t > T1 + T2 + T3 + T4 + T5) {
-    isFlipControl = false;
-    wasFlipControl = true;
+      isFlipControl = false;
+      wasFlipControl = true;
+      setFlip(false);
+      controllerPidInit();
     } else if (t > T1 + T2 + T3 + T4) {
-    control->thrust = U5 * g_vehicleMass;
-    control->pitch = Ixx * Th5;
+      control->thrust = U5 * g_vehicleMass;
+      control->pitch = (int16_t)(Ixx * Th5 * 5.0e6f);
     } else if (t > T1 + T2 + T3) {
-    control->thrust = U4 * g_vehicleMass;
-    control->pitch = Ixx * Th4;
+      control->thrust = U4 * g_vehicleMass;
+      control->pitch = (int16_t)(Ixx * Th4 * 5.0e6f);
     } else if (t > T1 + T2) {
-    control->thrust = U3 * g_vehicleMass;
-    control->pitch = Ixx * Th3;
+      control->thrust = U3 * g_vehicleMass;
+      control->pitch = (int16_t)(Ixx * Th3 * 5.0e6f);
     } else if (t > T1) {
-    control->thrust = U2 * g_vehicleMass;
-    control->pitch = Ixx * Th2;
+      control->thrust = U2 * g_vehicleMass;
+      control->pitch = (int16_t)(Ixx * Th2 * 5.0e6f);
     } else {
-    control->thrust = U1 * g_vehicleMass;
-    control->pitch = Ixx * Th1;
+      control->thrust = U1 * g_vehicleMass;
+      control->pitch = (int16_t)(Ixx * Th1 * 5.0e6f);
     }
     t += dt;
 
     cmd_thrust = control->thrust;
+    cmd_pitch = control->pitch;
     r_roll = radians(sensors->gyro.x);
     r_pitch = -radians(sensors->gyro.y);
     r_yaw = radians(sensors->gyro.z);
     accelz = sensors->acc.z;
+    control->roll = 0;
+    control->yaw = 0;
 
-    if (control->thrust > 0) {                                 
-        control->roll = 0;
+    //if (control->thrust > 0) {                                 
+        //control->roll = 0;
         //control->pitch = M.x*(float)(4.7784e+5 / (2.0 * 0.046)) + 0*M.y;
-        control->yaw = 0;
+        //control->yaw = 0;
         // control->roll = 1000; // clamp(M.x, -32000, 32000);
         // control->pitch = 0; //clamp(M.y, -32000, 32000);
         // control->yaw = 0; // clamp(-M.z, -32000, 32000);
 
-    } else {
+    /*} else {
         control->roll = 0;
         control->pitch = 0;
         control->yaw = 0;
         controllerFlipFFReset();
-    }
+    }*/
   }
   cmd_roll = control->roll;
   cmd_pitch = control->pitch;
@@ -194,7 +201,7 @@ void controllerFlipFF(control_t *control, setpoint_t *setpoint,
   cmd_thrust = control->thrust;
 }
 
-PARAM_GROUP_START(ctrlFlip)
+PARAM_GROUP_START(ctrlFlipFF)
 PARAM_ADD(PARAM_FLOAT, U1, &U1)
 PARAM_ADD(PARAM_FLOAT, Th1, &Th1)
 PARAM_ADD(PARAM_FLOAT, T1, &T1)
@@ -210,9 +217,13 @@ PARAM_ADD(PARAM_FLOAT, T4, &T4)
 PARAM_ADD(PARAM_FLOAT, U5, &U5)
 PARAM_ADD(PARAM_FLOAT, Th5, &Th5)
 PARAM_ADD(PARAM_FLOAT, T5, &T5)
-PARAM_GROUP_STOP(ctrlFlip)
+PARAM_ADD(PARAM_FLOAT, mass, &g_vehicleMass)
+PARAM_ADD(PARAM_FLOAT, Ixx, &Ixx)
+PARAM_ADD(PARAM_UINT8, isFlipControl, &isFlipControl)
+PARAM_ADD(PARAM_UINT8, wasFlipControl, &wasFlipControl)
+PARAM_GROUP_STOP(ctrlFlipFF)
 
-LOG_GROUP_START(ctrlFlip)
+LOG_GROUP_START(ctrlFlipFF)
 LOG_ADD(LOG_FLOAT, cmd_thrust, &cmd_thrust)
 LOG_ADD(LOG_FLOAT, cmd_roll, &cmd_roll)
 LOG_ADD(LOG_FLOAT, cmd_pitch, &cmd_pitch)
@@ -222,4 +233,4 @@ LOG_ADD(LOG_FLOAT, r_pitch, &r_pitch)
 LOG_ADD(LOG_FLOAT, r_yaw, &r_yaw)
 LOG_ADD(LOG_FLOAT, accelz, &accelz)
 LOG_ADD(LOG_FLOAT, t, &t)
-LOG_GROUP_STOP(ctrlFlip)
+LOG_GROUP_STOP(ctrlFlipFF)
