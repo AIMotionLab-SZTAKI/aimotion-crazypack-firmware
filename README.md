@@ -1,3 +1,3 @@
 # AIMotion Crazyflie Firmware 
 
-Building and flashing: follow the instructions at [Building and flashing](https://www.bitcraze.io/documentation/repository/crazyflie-firmware/2022.01/building-and-flashing/build/)
+Building and flashing: follow the instructions at [Building and flashing](https://github.com/bitcraze/crazyflie-firmware/blob/2022.01/docs/building-and-flashing/build.md)
